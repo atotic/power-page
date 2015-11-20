@@ -10,7 +10,7 @@
       :host {
         display: block;
         position: relative;
-        overflow: hidden; /* because http://stackoverflow.com/questions/32639639/ios-9-mobile-safari-has-a-blinking-bug-with-transform-scale3d-and-translate3d */
+        /*overflow: hidden; !* because http://stackoverflow.com/questions/32639639/ios-9-mobile-safari-has-a-blinking-bug-with-transform-scale3d-and-translate3d *!*/
       }
 
       :host > ::content > * {
@@ -63,7 +63,7 @@ LazyTransition.prototype = {
     this.entrySelected = entrySelected;
     if (this.isTemplate(this.exitPage)) {
       this.exitInstance = this.lazy._getInstanceElement(this.exitPage);
-    };
+    }
 
     // add class to exitInstance to prevent display:none)
     if (this.exitInstance) {
@@ -75,15 +75,38 @@ LazyTransition.prototype = {
     this.lazy._setSelectedItem(this.entryPage);
     if (this.isTemplate(this.entryPage)) {
       this.entryPage.addEventListener('dom-change', this._boundDomChange);
-      if (this.entryPage.if)
+      if (this.entryPage.if) {
         console.warn('transitioning to already showing template');
-      this.entryPage.if = true; // generate the dom
+      } else {
+        this.import(this.entryPage, function(){
+          this.entryPage.if = true; // generate the dom
+        }.bind(this));
+      }
     }
     else {
       this.entryInstance = this.lazy._getInstanceElement(this.entryPage);
       this.startAnimation();
     }
 
+  },
+
+  import: function(entryPage, cb) {
+    var links = entryPage._content.querySelectorAll('link[rel="import"]:not([is-imported])'),
+        count = links.length;
+    if (count == 0) {
+      cb();
+      return;
+    }
+    for (var i = 0; i < links.length; i++) {
+      Polymer.Base.importHref(links[i].href, function(e) {
+        if (--count == 0) {
+          cb();
+        }
+      }, function(e) {
+        throw e;
+      });
+      links[i].setAttribute('is-imported', true);
+    }
   },
 
   /**
